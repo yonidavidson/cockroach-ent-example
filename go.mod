@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	entgo.io/ent v0.10.0
+	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/jackc/pgx/v4 v4.15.0
 )
 
@@ -23,6 +24,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.10.0 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/lib/pq v1.10.4 // indirect
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
 	github.com/zclconf/go-cty v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
