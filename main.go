@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	dialect "entgo.io/ent/dialect"
+	"entgo.io/ent/dialect"
 	_ "github.com/jackc/pgx/v4/stdlib"
 
 	entsql "entgo.io/ent/dialect/sql"
@@ -18,8 +18,7 @@ import (
 )
 
 func main() {
-	databaseUrl := os.Getenv("COCKROACH_DSN")
-	db, err := sql.Open("pgx", databaseUrl)
+	db, err := sql.Open("pgx", os.Getenv("COCKROACH_DSN"))
 	if err != nil {
 		log.Fatal(err)
 	}
