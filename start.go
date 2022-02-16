@@ -12,6 +12,7 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 
+	"github.com/yonidavidson/cockroachent/driver"
 	"github.com/yonidavidson/cockroachent/ent"
 	"github.com/yonidavidson/cockroachent/ent/account"
 )
@@ -23,7 +24,8 @@ func main() {
 		log.Fatal(err)
 	}
 	drv := entsql.OpenDB(dialect.Postgres, db)
-	client := ent.NewClient(ent.Driver(drv))
+	cd := driver.New(drv)
+	client := ent.NewClient(ent.Driver(cd))
 	defer client.Close()
 	ctx := context.Background()
 	// run the auto migration tool.
