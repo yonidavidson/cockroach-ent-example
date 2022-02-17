@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/yonidavidson/cockroachent/ent/account"
 	"github.com/yonidavidson/cockroachent/ent/predicate"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 // AccountUpdate is the builder for updating Account entities.
@@ -40,9 +41,34 @@ func (au *AccountUpdate) AddBalance(i int) *AccountUpdate {
 	return au
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (au *AccountUpdate) SetOwnerID(id int) *AccountUpdate {
+	au.mutation.SetOwnerID(id)
+	return au
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (au *AccountUpdate) SetNillableOwnerID(id *int) *AccountUpdate {
+	if id != nil {
+		au = au.SetOwnerID(*id)
+	}
+	return au
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (au *AccountUpdate) SetOwner(u *User) *AccountUpdate {
+	return au.SetOwnerID(u.ID)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (au *AccountUpdate) Mutation() *AccountMutation {
 	return au.mutation
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (au *AccountUpdate) ClearOwner() *AccountUpdate {
+	au.mutation.ClearOwner()
+	return au
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -147,6 +173,41 @@ func (au *AccountUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: account.FieldBalance,
 		})
 	}
+	if au.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.OwnerTable,
+			Columns: []string{account.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := au.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.OwnerTable,
+			Columns: []string{account.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, au.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{account.Label}
@@ -179,9 +240,34 @@ func (auo *AccountUpdateOne) AddBalance(i int) *AccountUpdateOne {
 	return auo
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (auo *AccountUpdateOne) SetOwnerID(id int) *AccountUpdateOne {
+	auo.mutation.SetOwnerID(id)
+	return auo
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (auo *AccountUpdateOne) SetNillableOwnerID(id *int) *AccountUpdateOne {
+	if id != nil {
+		auo = auo.SetOwnerID(*id)
+	}
+	return auo
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (auo *AccountUpdateOne) SetOwner(u *User) *AccountUpdateOne {
+	return auo.SetOwnerID(u.ID)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (auo *AccountUpdateOne) Mutation() *AccountMutation {
 	return auo.mutation
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (auo *AccountUpdateOne) ClearOwner() *AccountUpdateOne {
+	auo.mutation.ClearOwner()
+	return auo
 }
 
 // Select allows selecting one or more fields (columns) of the returned entity.
@@ -309,6 +395,41 @@ func (auo *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err e
 			Value:  value,
 			Column: account.FieldBalance,
 		})
+	}
+	if auo.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.OwnerTable,
+			Columns: []string{account.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := auo.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.OwnerTable,
+			Columns: []string{account.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Account{config: auo.config}
 	_spec.Assign = _node.assignValues

@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/yonidavidson/cockroachent/ent/account"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 // AccountCreate is the builder for creating a Account entity.
@@ -23,6 +24,25 @@ type AccountCreate struct {
 func (ac *AccountCreate) SetBalance(i int) *AccountCreate {
 	ac.mutation.SetBalance(i)
 	return ac
+}
+
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (ac *AccountCreate) SetOwnerID(id int) *AccountCreate {
+	ac.mutation.SetOwnerID(id)
+	return ac
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (ac *AccountCreate) SetNillableOwnerID(id *int) *AccountCreate {
+	if id != nil {
+		ac = ac.SetOwnerID(*id)
+	}
+	return ac
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (ac *AccountCreate) SetOwner(u *User) *AccountCreate {
+	return ac.SetOwnerID(u.ID)
 }
 
 // Mutation returns the AccountMutation object of the builder.
@@ -137,6 +157,26 @@ func (ac *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Column: account.FieldBalance,
 		})
 		_node.Balance = value
+	}
+	if nodes := ac.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.OwnerTable,
+			Columns: []string{account.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_accounts = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
