@@ -8,6 +8,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/yonidavidson/cockroachent/ent/account"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 // Account is the model entity for the Account schema.
@@ -17,6 +18,33 @@ type Account struct {
 	ID int `json:"id,omitempty"`
 	// Balance holds the value of the "balance" field.
 	Balance int `json:"balance,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the AccountQuery when eager-loading is set.
+	Edges         AccountEdges `json:"edges"`
+	user_accounts *int
+}
+
+// AccountEdges holds the relations/edges for other nodes in the graph.
+type AccountEdges struct {
+	// Owner holds the value of the owner edge.
+	Owner *User `json:"owner,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// OwnerOrErr returns the Owner value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AccountEdges) OwnerOrErr() (*User, error) {
+	if e.loadedTypes[0] {
+		if e.Owner == nil {
+			// The edge owner was loaded in eager-loading,
+			// but was not found.
+			return nil, &NotFoundError{label: user.Label}
+		}
+		return e.Owner, nil
+	}
+	return nil, &NotLoadedError{edge: "owner"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -25,6 +53,8 @@ func (*Account) scanValues(columns []string) ([]interface{}, error) {
 	for i := range columns {
 		switch columns[i] {
 		case account.FieldID, account.FieldBalance:
+			values[i] = new(sql.NullInt64)
+		case account.ForeignKeys[0]: // user_accounts
 			values[i] = new(sql.NullInt64)
 		default:
 			return nil, fmt.Errorf("unexpected column %q for type Account", columns[i])
@@ -53,9 +83,21 @@ func (a *Account) assignValues(columns []string, values []interface{}) error {
 			} else if value.Valid {
 				a.Balance = int(value.Int64)
 			}
+		case account.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field user_accounts", value)
+			} else if value.Valid {
+				a.user_accounts = new(int)
+				*a.user_accounts = int(value.Int64)
+			}
 		}
 	}
 	return nil
+}
+
+// QueryOwner queries the "owner" edge of the Account entity.
+func (a *Account) QueryOwner() *UserQuery {
+	return (&AccountClient{config: a.config}).QueryOwner(a)
 }
 
 // Update returns a builder for updating this Account.

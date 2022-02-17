@@ -5,6 +5,7 @@ package ent
 import (
 	"github.com/yonidavidson/cockroachent/ent/account"
 	"github.com/yonidavidson/cockroachent/ent/schema"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -17,4 +18,10 @@ func init() {
 	accountDescBalance := accountFields[0].Descriptor()
 	// account.BalanceValidator is a validator for the "balance" field. It is called by the builders before save.
 	account.BalanceValidator = accountDescBalance.Validators[0].(func(int) error)
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescName is the schema descriptor for name field.
+	userDescName := userFields[0].Descriptor()
+	// user.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	user.NameValidator = userDescName.Validators[0].(func(string) error)
 }

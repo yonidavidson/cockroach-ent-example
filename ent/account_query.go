@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/yonidavidson/cockroachent/ent/account"
 	"github.com/yonidavidson/cockroachent/ent/predicate"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 // AccountQuery is the builder for querying Account entities.
@@ -24,6 +25,9 @@ type AccountQuery struct {
 	order      []OrderFunc
 	fields     []string
 	predicates []predicate.Account
+	// eager-loading edges.
+	withOwner *UserQuery
+	withFKs   bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +62,28 @@ func (aq *AccountQuery) Unique(unique bool) *AccountQuery {
 func (aq *AccountQuery) Order(o ...OrderFunc) *AccountQuery {
 	aq.order = append(aq.order, o...)
 	return aq
+}
+
+// QueryOwner chains the current query on the "owner" edge.
+func (aq *AccountQuery) QueryOwner() *UserQuery {
+	query := &UserQuery{config: aq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := aq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := aq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, account.OwnerTable, account.OwnerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first Account entity from the query.
@@ -241,10 +267,22 @@ func (aq *AccountQuery) Clone() *AccountQuery {
 		offset:     aq.offset,
 		order:      append([]OrderFunc{}, aq.order...),
 		predicates: append([]predicate.Account{}, aq.predicates...),
+		withOwner:  aq.withOwner.Clone(),
 		// clone intermediate query.
 		sql:  aq.sql.Clone(),
 		path: aq.path,
 	}
+}
+
+// WithOwner tells the query-builder to eager-load the nodes that are connected to
+// the "owner" edge. The optional arguments are used to configure the query builder of the edge.
+func (aq *AccountQuery) WithOwner(opts ...func(*UserQuery)) *AccountQuery {
+	query := &UserQuery{config: aq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	aq.withOwner = query
+	return aq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -310,9 +348,19 @@ func (aq *AccountQuery) prepareQuery(ctx context.Context) error {
 
 func (aq *AccountQuery) sqlAll(ctx context.Context) ([]*Account, error) {
 	var (
-		nodes = []*Account{}
-		_spec = aq.querySpec()
+		nodes       = []*Account{}
+		withFKs     = aq.withFKs
+		_spec       = aq.querySpec()
+		loadedTypes = [1]bool{
+			aq.withOwner != nil,
+		}
 	)
+	if aq.withOwner != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, account.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]interface{}, error) {
 		node := &Account{config: aq.config}
 		nodes = append(nodes, node)
@@ -323,6 +371,7 @@ func (aq *AccountQuery) sqlAll(ctx context.Context) ([]*Account, error) {
 			return fmt.Errorf("ent: Assign called without calling ScanValues")
 		}
 		node := nodes[len(nodes)-1]
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	if err := sqlgraph.QueryNodes(ctx, aq.driver, _spec); err != nil {
@@ -331,6 +380,36 @@ func (aq *AccountQuery) sqlAll(ctx context.Context) ([]*Account, error) {
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+
+	if query := aq.withOwner; query != nil {
+		ids := make([]int, 0, len(nodes))
+		nodeids := make(map[int][]*Account)
+		for i := range nodes {
+			if nodes[i].user_accounts == nil {
+				continue
+			}
+			fk := *nodes[i].user_accounts
+			if _, ok := nodeids[fk]; !ok {
+				ids = append(ids, fk)
+			}
+			nodeids[fk] = append(nodeids[fk], nodes[i])
+		}
+		query.Where(user.IDIn(ids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := nodeids[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "user_accounts" returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.Owner = n
+			}
+		}
+	}
+
 	return nodes, nil
 }
 

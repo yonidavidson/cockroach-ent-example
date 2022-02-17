@@ -15,6 +15,7 @@ import (
 	"github.com/yonidavidson/cockroachent/driver"
 	"github.com/yonidavidson/cockroachent/ent"
 	"github.com/yonidavidson/cockroachent/ent/account"
+	"github.com/yonidavidson/cockroachent/ent/user"
 )
 
 func main() {
@@ -34,9 +35,21 @@ func main() {
 	if _, err = CreateAccount(ctx, client); err != nil {
 		log.Fatal(err)
 	}
-	if _, err = QueryAccount(ctx, client); err != nil {
+	a, err := QueryAccount(ctx, client)
+	if err != nil {
 		log.Fatal(err)
 	}
+	if _, err = CreateUser(ctx, client); err != nil {
+		log.Fatal(err)
+	}
+	u, err := QueryUser(ctx, client)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := client.Account.UpdateOne(a).SetOwner(u).Exec(ctx); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("account connected to owner")
 }
 
 func CreateAccount(ctx context.Context, client *ent.Client) (*ent.Account, error) {
@@ -60,5 +73,29 @@ func QueryAccount(ctx context.Context, client *ent.Client) (*ent.Account, error)
 		return nil, fmt.Errorf("failed querying account: %w", err)
 	}
 	log.Println("account returned: ", u)
+	return u, nil
+}
+
+func CreateUser(ctx context.Context, client *ent.Client) (*ent.User, error) {
+	u, err := client.User.
+		Create().
+		SetName("Yoni").
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating user: %w", err)
+	}
+	log.Println("user was created: ", u)
+	return u, nil
+}
+
+func QueryUser(ctx context.Context, client *ent.Client) (*ent.User, error) {
+	u, err := client.User.
+		Query().
+		Where(user.NameEQ("Yoni")).
+		First(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed querying user: %w", err)
+	}
+	log.Println("user returned: ", u)
 	return u, nil
 }
